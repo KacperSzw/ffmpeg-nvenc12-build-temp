@@ -2,6 +2,14 @@
 set -xe
 shopt -s globstar
 cd "$(dirname "$0")"
+
+if [[ "$*" != "win64 lgpl-shared 8.1" ]]; then
+    mkdir -p artifacts
+    echo "One-off build skipped for $*." > "artifacts/skipped-${1}-${2}-${3:-default}.txt"
+    exit 0
+fi
+
+export GITHUB_REPOSITORY=BtbN/FFmpeg-Builds
 source util/vars.sh
 
 source "variants/${TARGET}-${VARIANT}.sh"
@@ -34,12 +42,13 @@ cat <<EOF >"$BUILD_SCRIPT"
 
     git clone --filter=blob:none --branch='$GIT_BRANCH' '$FFMPEG_REPO' ffmpeg
     cd ffmpeg
+    git checkout '${FFMPEG_COMMIT_OVERRIDE:-9b6c8969e05b4f0b29f0f85cd501be6b3e582e6b}'
 
     ./configure --prefix=/ffbuild/prefix --pkg-config-flags="--static" \$FFBUILD_TARGET_FLAGS \$FF_CONFIGURE \
         --extra-cflags="\$FF_CFLAGS" --extra-cxxflags="\$FF_CXXFLAGS" --extra-libs="\$FF_LIBS" \
         --extra-ldflags="\$FF_LDFLAGS" --extra-ldexeflags="\$FF_LDEXEFLAGS" \
         --cc="\$CC" --cxx="\$CXX" --ar="\$AR" --ranlib="\$RANLIB" --nm="\$NM" \
-        --extra-version="\$(date +%Y%m%d)" || { cat ffbuild/config.log; exit 1; }
+        --extra-version="20260806" || { cat ffbuild/config.log; exit 1; }
     make -j\$(nproc) V=1
     make install install-doc
 EOF
