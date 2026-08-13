@@ -38,14 +38,21 @@ trap "rm -f -- '$BUILD_SCRIPT'" EXIT
 cat <<EOF >"$BUILD_SCRIPT"
     set -xe
     cd /ffbuild
-    rm -rf ffmpeg prefix
+    rm -rf ffmpeg nv-codec-headers prefix
+
+    git clone --filter=blob:none 'https://github.com/FFmpeg/nv-codec-headers.git' nv-codec-headers
+    git -C nv-codec-headers checkout 'c69278340ab1d5559c7d7bf0edf615dc33ddbba7'
+    grep -q '^#define NVENCAPI_MAJOR_VERSION 12$' nv-codec-headers/include/ffnvcodec/nvEncodeAPI.h
+    grep -q '^#define NVENCAPI_MINOR_VERSION 2$' nv-codec-headers/include/ffnvcodec/nvEncodeAPI.h
+    make -C nv-codec-headers PREFIX=/ffbuild/nvcodec install
+    export PKG_CONFIG_PATH="/ffbuild/nvcodec/lib/pkgconfig:\$PKG_CONFIG_PATH"
 
     git clone --filter=blob:none --branch='$GIT_BRANCH' '$FFMPEG_REPO' ffmpeg
     cd ffmpeg
     git checkout '${FFMPEG_COMMIT_OVERRIDE:-9b6c8969e05b4f0b29f0f85cd501be6b3e582e6b}'
 
     ./configure --prefix=/ffbuild/prefix --pkg-config-flags="--static" \$FFBUILD_TARGET_FLAGS \$FF_CONFIGURE --disable-liboapv \
-        --extra-cflags="\$FF_CFLAGS" --extra-cxxflags="\$FF_CXXFLAGS" --extra-libs="\$FF_LIBS" \
+        --extra-cflags="-I/ffbuild/nvcodec/include \$FF_CFLAGS" --extra-cxxflags="\$FF_CXXFLAGS" --extra-libs="\$FF_LIBS" \
         --extra-ldflags="\$FF_LDFLAGS" --extra-ldexeflags="\$FF_LDEXEFLAGS" \
         --cc="\$CC" --cxx="\$CXX" --ar="\$AR" --ranlib="\$RANLIB" --nm="\$NM" \
         --extra-version="20260806" || { cat ffbuild/config.log; exit 1; }
