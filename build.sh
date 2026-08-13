@@ -47,6 +47,15 @@ cat <<EOF >"$BUILD_SCRIPT"
     make -C nv-codec-headers PREFIX=/ffbuild/nvcodec install
     export PKG_CONFIG_PATH="/ffbuild/nvcodec/lib/pkgconfig:\$PKG_CONFIG_PATH"
 
+    REAL_CC="\$(command -v "\$CC")"
+    REAL_CXX="\$(command -v "\$CXX")"
+    printf '#!/bin/sh\nexec "%s" -I/ffbuild/nvcodec/include "\$@"\n' "\$REAL_CC" > /ffbuild/nvcodec-cc
+    printf '#!/bin/sh\nexec "%s" -I/ffbuild/nvcodec/include "\$@"\n' "\$REAL_CXX" > /ffbuild/nvcodec-cxx
+    chmod +x /ffbuild/nvcodec-cc /ffbuild/nvcodec-cxx
+    CC=/ffbuild/nvcodec-cc
+    CXX=/ffbuild/nvcodec-cxx
+    printf '#include <ffnvcodec/nvEncodeAPI.h>\n#if NVENCAPI_MAJOR_VERSION != 12 || NVENCAPI_MINOR_VERSION != 2\n#error Unexpected NVENC API version\n#endif\n' | "\$CC" -x c -E - >/dev/null
+
     git clone --filter=blob:none --branch='$GIT_BRANCH' '$FFMPEG_REPO' ffmpeg
     cd ffmpeg
     git checkout '${FFMPEG_COMMIT_OVERRIDE:-9b6c8969e05b4f0b29f0f85cd501be6b3e582e6b}'
